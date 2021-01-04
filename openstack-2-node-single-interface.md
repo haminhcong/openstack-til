@@ -164,7 +164,27 @@ filter = [ "a/sda/", "a/sdb/", "r/.*/"]
 
 ### Prepare Networking
 
-Setup networking configuration:
+Setup networking configuration as controller networking:
+
+```ini
+# /etc/systemd/network/25-veth-0-1.netdev
+[NetDev]
+Name=veth0
+Kind=veth
+
+[Peer]
+Name=veth1
+```
+
+```ini
+# /etc/systemd/network/25-veth-2-3.netdev
+[NetDev]
+Name=veth2
+Kind=veth
+
+[Peer]
+Name=veth3
+```
 
 ```yaml
 # /etc/netplan/00-installer-config.yaml
@@ -172,22 +192,32 @@ network:
   version: 2
   renderer: networkd
   ethernets:
-          ens33:
-                  addresses:
-                          - 192.168.175.31/24
-                  gateway4: 192.168.175.2
-                  nameservers:
-                          addresses: [8.8.8.8, 8.8.4.4]
-          
-          ens36:
-                  addresses:
-                          - 192.168.10.31/24
-          ens37: {}
+    ens33:
+      dhcp4: false
+      dhcp6: false
+    veth0: {}
+    veth1:
+      addresses:
+        - 192.168.175.31/24
+      gateway4: 192.168.175.2
+      nameservers:
+        addresses: [8.8.8.8, 8.8.4.4]
+    veth2: {}
+    veth3: {}  
+  bridges:
+    br-ens33:
+      interfaces: 
+        - ens33
+        - veth0
+        - veth2
+      dhcp4: false        
+      dhcp6: false
 ```
 
 apply it
 
 ```bash
+systemctl restart systemd-networkd
 netplan apply
 ```
 
@@ -205,8 +235,10 @@ Rebuild initramfs using: `update-initramfs -u` command
 Stop open-iscsi system service due to its conflicts with iscsid container.
 
 ```bash
-systemctl stop open-iscsi; systemctl stop iscsid
-systemctl disable open-iscsi; systemctl disable iscsid
+systemctl stop open-iscsi 
+systemctl stop iscsid
+systemctl disable open-iscsi
+systemctl disable iscsid
 ```
 
 Make sure configfs gets mounted during a server boot up process. There are multiple ways to accomplish it, one example:
@@ -231,10 +263,6 @@ network:
                   gateway4: 192.168.175.2
                   nameservers:
                           addresses: [8.8.8.8, 8.8.4.4]
-          
-          ens36:
-                  addresses:
-                          - 192.168.10.5/24
 ```
 
 apply it
@@ -252,7 +280,8 @@ apt-get update
 apt-get install python-pip
 pip install -U pip
 apt-get install python
-apt-get install python-dev libffi-dev gcc libssl-dev python-selinux python-setuptools
+sudo apt-get install python-dev libffi-dev gcc libssl-dev python-selinux python-setuptools
+apt-get install virtualenv
 ```
 
 Create deploy folder:
