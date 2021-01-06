@@ -135,6 +135,36 @@ ip a
        valid_lft forever preferred_lft forever
 ```
 
+Add iptables rules to allow packet forwarding in br-ens33 bridge:
+
+Install iptables pernament packages: `apt-get install iptables-persistent`
+
+Add iptables rules to configuration file:
+
+```bash
+# file /etc/iptables/rules.v4
+*filter
+
+-A FORWARD -i br-ens33 -j ACCEPT
+-A FORWARD -o br-ens33 -j ACCEPT
+
+COMMIT
+```
+
+reload configuration: `systemctl restart iptables-persistent`
+
+Verify:
+
+```bash
+iptables -S
+
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-A FORWARD -i br-ens33 -j ACCEPT
+-A FORWARD -o br-ens33 -j ACCEPT
+```
+
 ### Prepare Storage
 
 Configure LVM2
@@ -221,6 +251,36 @@ systemctl restart systemd-networkd
 netplan apply
 ```
 
+Add iptables rules to allow packet forwarding in br-ens33 bridge:
+
+Install iptables pernament packages: `apt-get install iptables-persistent`
+
+Add iptables rules to configuration file:
+
+```bash
+# file /etc/iptables/rules.v4
+*filter
+
+-A FORWARD -i br-ens33 -j ACCEPT
+-A FORWARD -o br-ens33 -j ACCEPT
+
+COMMIT
+```
+
+reload configuration: `systemctl restart iptables-persistent`
+
+Verify:
+
+```bash
+iptables -S
+
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-A FORWARD -i br-ens33 -j ACCEPT
+-A FORWARD -o br-ens33 -j ACCEPT
+```
+
 ### Prepare Storage Configuration For Compute Node
 
 Add configfs module to /etc/modules
@@ -280,8 +340,7 @@ apt-get update
 apt-get install python-pip
 pip install -U pip
 apt-get install python
-sudo apt-get install python-dev libffi-dev gcc libssl-dev python-selinux python-setuptools
-apt-get install virtualenv
+apt-get install python-dev libffi-dev gcc libssl-dev python-selinux python-setuptools virtualenv sshpass
 ```
 
 Create deploy folder:
@@ -299,11 +358,11 @@ source venv/bin/activate
 pip install -U pip
 ```
 
-Install ansible and kolla-ansible
+Install ansible and kolla-ansible for OpenStack Train Release
 
 ```bash
-pip install ansible==2.8.15
-pip install kolla-ansible==7.2.1
+pip install 'ansible<2.10'
+pip install kolla-ansible==9.2.0
 ```
 
 Create kolla-ansible working directory `/etc/kolla`
@@ -329,19 +388,21 @@ pipelining=True
 forks=100
 ```
 
+## Prepare Configurtion Files and Deploy OpenStack Cloud
+
 ### Setup ansbile inventory file
 
 Update ansible inventory file `multinode` with following content
 
 ```ini
 [control]
-192.168.10.11 ansible_user=cloud ansible_password=foobar ansible_become=true ansible_become_pass=foorbar
+192.168.175.11 ansible_user=cloud ansible_password=foobar ansible_become=true ansible_become_pass=foorbar
 
 [network:children]
 control
 
 [compute]
-192.168.10.31 ansible_user=cloud ansible_password=foobar ansible_become=true ansible_become_pass=foorbar
+192.168.175.31 ansible_user=cloud ansible_password=foobar ansible_become=true ansible_become_pass=foorbar
 
 [monitoring:children]
 control
@@ -374,14 +435,13 @@ Next step, we have to update config file `/etc/kolla/globals.yml` with following
 ```yaml
 #cp /etc/kolla/globals.yml /etc/kolla/globals.yml.bak
 #file /etc/kolla/globals.yml
----
 kolla_base_distro: "centos"
 kolla_install_type: "source"
-openstack_release: "rocky"
-kolla_internal_vip_address: 192.168.10.11
-network_interface: "ens36"
-neutron_bridge_name: "br-ex,br-ex2"
-neutron_external_interface: "ens33,ens37"
+openstack_release: "train"
+kolla_internal_vip_address: 192.168.175.11
+network_interface: "veth1"
+neutron_bridge_name: "br-ex"
+neutron_external_interface: "veth3"
 
 nova_compute_virt_type: "kvm"
 enable_haproxy: "no"
@@ -389,9 +449,17 @@ enable_cinder: "yes"
 enable_cinder_backup: "no"
 enable_cinder_backend_lvm: "yes"
 enable_neutron_provider_networks: "yes"
-
-
 ```
+
+### Deploy OpenStack Cloud Using Kolla Ansible
+
+On bastion node, perform following steps:
+
+Check ansible connection: `ansible -i multinode all -m ping`
+
+Perform bootstrap step: `kolla-ansible -i ./multinode bootstrap-servers`
+
+Precheck environment: `kolla-ansible -i ./multinode prechecks`
 
 ## References
 
