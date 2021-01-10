@@ -1,4 +1,4 @@
-# Setup OpenStack Cloud For Lab Purpose With 2-Nodes Configuration
+# Setup OpenStack Cloud For Lab Purpose With Four Interfaces Configuration
 
 ## Overview And Requirements
 
