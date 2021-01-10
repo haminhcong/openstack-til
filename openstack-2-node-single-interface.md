@@ -37,7 +37,7 @@ Bastion node:
 
 ## Install Version
 
-- Kolla-ansible version: 7.2.1
+- Kolla-ansible version: 9.x.x (compatible with OpenStack Train version). On writing time, version choosen is 9.3.0
 - OpenStack version: Train
 
 ## Prepare Controller Node
@@ -364,7 +364,7 @@ Install ansible and kolla-ansible for OpenStack Train Release
 
 ```bash
 pip install 'ansible<2.10'
-pip install kolla-ansible==9.2.0
+python -m pip install git+https://opendev.org/openstack/kolla-ansible.git@9.3.0
 ```
 
 Create kolla-ansible working directory `/etc/kolla`
