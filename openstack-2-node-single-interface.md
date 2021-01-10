@@ -470,7 +470,7 @@ Deploy OpenStack Train to controller and compute hosts: `kolla-ansible -i ./mult
 
 From home directory, create folder `openstack-client`
 
-Install python3 virtual environtment and OpenStack client
+Install python virtual environtment and OpenStack client
 
 ```shell_script
 virtualenv venv
