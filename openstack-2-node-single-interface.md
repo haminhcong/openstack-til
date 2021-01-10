@@ -437,7 +437,8 @@ Next step, we have to update config file `/etc/kolla/globals.yml` with following
 ```yaml
 #cp /etc/kolla/globals.yml /etc/kolla/globals.yml.bak
 #file /etc/kolla/globals.yml
-kolla_base_distro: "centos"
+kolla_base_distro: "ubuntu"
+ansible_distribution_major_version: "18"
 kolla_install_type: "source"
 openstack_release: "train"
 kolla_internal_vip_address: 192.168.175.11
@@ -462,6 +463,102 @@ Check ansible connection: `ansible -i multinode all -m ping`
 Perform bootstrap step: `kolla-ansible -i ./multinode bootstrap-servers`
 
 Precheck environment: `kolla-ansible -i ./multinode prechecks`
+
+Deploy OpenStack Train to controller and compute hosts: `kolla-ansible -i ./multinode deploy`
+
+### Verify installed environment
+
+From home directory, create folder `openstack-client`
+
+Install python3 virtual environtment and OpenStack client
+
+```shell_script
+virtualenv venv
+source venv/bin/activate
+pip install -U pip
+pip install python-openstackclient==3.18.0
+```
+
+Fix openstack client
+
+```shell_script
+vim venv/local/lib/python2.7/site-packages/openstack/utils.py
+vim venv/local/lib/python2.7/site-packages/openstack/cloud/openstackcloud.py
+# replace "import queue" with:
+from multiprocessing import Queue as queue
+```
+
+Create credentials file admin.openrc
+
+```bash
+export OS_AUTH_URL=http://192.168.175.11:5000
+export OS_PROJECT_NAME="admin"
+export OS_USER_DOMAIN_NAME="Default"
+export OS_PROJECT_DOMAIN_ID="default"
+export OS_USERNAME="admin"
+export OS_PASSWORD="password from entry keystone_admin_password"
+export OS_REGION_NAME="RegionOne"
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+```
+
+verify token
+
+```bash
+source admin.openrc
+openstack token issue
+```
+
+Create Cloud resources:
+
+```shell_script
+openstack flavor create --ram 2048 --disk 10 --vcpus 2 m1.small
+ssh-keygen -q -N "" (server.key)
+openstack keypair create --public-key server.key.pub server_key
+
+openstack security group rule create --proto icmp default
+openstack security group rule create --proto tcp --dst-port 22 default
+
+openstack network create public-net --provider-network-type flat --provider-physical-network physnet1 --external 
+openstack subnet create public-subnet \
+        --network public-net --subnet-range 192.168.175.0/24 \
+        --allocation-pool start=192.168.175.100,end=192.168.175.200 \
+        --dhcp --gateway 192.168.175.2
+wget https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-1503.qcow2
+openstack image create --disk-format qcow2 --container-format bare \
+  --public --file ./CentOS-7-x86_64-GenericCloud-1503.qcow2 centos7-cloud-image.qcow2
+
+```
+
+Create VM on public network
+
+```bash
+openstack server create --flavor m1.small --image centos7-cloud-image.qcow2 \
+  --nic net-id=public-net \
+  --key-name server_key provider-vm-1
+```
+
+Verify created VM:
+
+```bash
+openstack server list
++--------------------------------------+---------------+--------+----------------------------+---------------------------+----------+
+| ID                                   | Name          | Status | Networks                   | Image                     | Flavor   |
++--------------------------------------+---------------+--------+----------------------------+---------------------------+----------+
+| 133529da-2e21-4d43-a258-07751b43c159 | provider-vm-1 | ACTIVE | public-net=192.168.175.167 | centos7-cloud-image.qcow2 | m1.small |
++--------------------------------------+---------------+--------+----------------------------+---------------------------+----------+
+
+(venv) cloud@bastion:~/openstack-client$ ssh -i server.key centos@192.168.175.167
+The authenticity of host '192.168.175.167 (192.168.175.167)' can't be established.
+ECDSA key fingerprint is SHA256:c4LX46kkYHZDYMKmQv8CeVUQlHLFio+WnF2yCuezXwk.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '192.168.175.167' (ECDSA) to the list of known hosts.
+[centos@provider-vm-1 ~]$ ping google.com.vn
+PING google.com.vn (172.217.163.227) 56(84) bytes of data.
+64 bytes from hkg12s18-in-f3.1e100.net (172.217.163.227): icmp_seq=1 ttl=128 time=24.6 ms
+64 bytes from hkg12s18-in-f3.1e100.net (172.217.163.227): icmp_seq=2 ttl=128 time=25.0 ms
+64 bytes from hkg12s18-in-f3.1e100.net (172.217.163.227): icmp_seq=3 ttl=128 time=24.4 ms
+```
 
 ## References
 
