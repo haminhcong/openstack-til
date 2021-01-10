@@ -135,9 +135,11 @@ ip a
        valid_lft forever preferred_lft forever
 ```
 
-Add iptables rules to allow packet forwarding in br-ens33 bridge:
+When Docker deamon is installed and started, default forward policy will be DROP when docker insert rule
+`-P FORWARD DROP` to iptables. To prevent connection lost after this iptables rule is applied, 
+add two iptables rules to allow packet forwarding in br-ens33 bridge:
 
-Install iptables pernament packages: `apt-get install iptables-persistent`
+Install iptables pernament packages: `sudo apt install iptables-persistent netfilter-persistent`
 
 Add iptables rules to configuration file:
 
@@ -151,7 +153,7 @@ Add iptables rules to configuration file:
 COMMIT
 ```
 
-reload configuration: `systemctl restart iptables-persistent`
+reload iptables configuration: `systemctl restart netfilter-persistent`
 
 Verify:
 
@@ -253,7 +255,7 @@ netplan apply
 
 Add iptables rules to allow packet forwarding in br-ens33 bridge:
 
-Install iptables pernament packages: `apt-get install iptables-persistent`
+Install iptables pernament packages: `sudo apt install iptables-persistent netfilter-persistent`
 
 Add iptables rules to configuration file:
 
@@ -267,7 +269,7 @@ Add iptables rules to configuration file:
 COMMIT
 ```
 
-reload configuration: `systemctl restart iptables-persistent`
+reload iptables configuration: `systemctl restart netfilter-persistent`
 
 Verify:
 
